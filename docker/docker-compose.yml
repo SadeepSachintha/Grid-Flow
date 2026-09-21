@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # 1. MQTT Broker for High-Frequency String Inverters & Weather Station Telemetry
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: gridflow-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-logs:/mosquitto/log
+
+  # 2. Apache Kafka (KRaft mode - No Zookeeper needed)
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: gridflow-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka:29093'
+      KAFKA_LISTENERS: 'PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  # 3. TimescaleDB (PostgreSQL with Time-Series Hyper-tables)
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: gridflow-timescaledb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gridflow
+      POSTGRES_PASSWORD: gridflow_secret
+      POSTGRES_DB: gridflow_ts
+    volumes:
+      - ./timescale/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - timescale-data:/var/lib/postgresql/data
+
+  # 4. Redis for Alert Dispatch & Laravel Queues
+  redis:
+    image: redis:7-alpine
+    container_name: gridflow-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mosquitto-data:
+  mosquitto-logs:
+  kafka-data:
+  timescale-data:
+  redis-data:
