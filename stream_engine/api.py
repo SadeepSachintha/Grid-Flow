@@ -222,6 +222,22 @@ async def reset_frequency_event():
         "message": "Grid frequency restored to nominal 60.00 Hz deadband."
     }
 
+@app.post("/api/bess/thermal-drill")
+async def trigger_bess_thermal_drill():
+    worker.simulator.bess_health_engine.trigger_thermal_runaway_drill(target_rack="BESS-01:RACK-03")
+    return {
+        "status": "APPLIED",
+        "message": "Thermal runaway drill initiated on BESS-01:RACK-03. Micro-short, off-gassing, and automated contactor trip in progress."
+    }
+
+@app.post("/api/bess/reset")
+async def reset_bess_health_drill():
+    worker.simulator.bess_health_engine.reset_bess_health()
+    return {
+        "status": "RESET",
+        "message": "BESS cell health restored to nominal. DC contactors closed."
+    }
+
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
     await websocket.accept()

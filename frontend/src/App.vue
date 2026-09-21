@@ -102,7 +102,7 @@
       <!-- Row 2: BESS Storage Dispatch & 32 String Divergence Matrix -->
       <section class="scada-row row-mid">
         <div class="col-mid-left">
-          <BessPowerFlow :telemetry="telemetry" @open-mpc="isMpcOpen = true" />
+          <BessPowerFlow :telemetry="telemetry" @open-mpc="isMpcOpen = true" @open-health="isBessHealthOpen = true" />
         </div>
         <div class="col-mid-right">
           <StringMonitor :telemetry="telemetry" />
@@ -150,6 +150,13 @@
         :telemetry="telemetry" 
         @close="isDigitalTwinOpen = false" 
       />
+
+      <!-- BESS Electrochemical Health & Thermal Runaway Modal -->
+      <BessHealthModal 
+        :is-open="isBessHealthOpen" 
+        :telemetry="telemetry" 
+        @close="isBessHealthOpen = false" 
+      />
     </main>
   </div>
 </template>
@@ -169,6 +176,7 @@ import MpcTrajectoryModal from './components/MpcTrajectoryModal.vue'
 import DigitalTwinModal from './components/DigitalTwinModal.vue'
 import SkyCamRadar from './components/SkyCamRadar.vue'
 import FrequencyResponse from './components/FrequencyResponse.vue'
+import BessHealthModal from './components/BessHealthModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -177,6 +185,7 @@ const isPlaybackMode = ref(false)
 const isWorkOrdersOpen = ref(false)
 const isMpcOpen = ref(false)
 const isDigitalTwinOpen = ref(false)
+const isBessHealthOpen = ref(false)
 const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null

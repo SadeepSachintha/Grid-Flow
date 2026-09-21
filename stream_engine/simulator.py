@@ -7,6 +7,7 @@ from stream_engine.config import settings
 from stream_engine.models.solar_tracker import SolarTrackerEngine
 from stream_engine.models.cloud_motion import CloudMotionEngine
 from stream_engine.models.frequency_droop import FrequencyDroopEngine
+from stream_engine.models.battery_health import BatteryHealthEngine
 
 class TelemetrySimulator:
     """
@@ -31,6 +32,10 @@ class TelemetrySimulator:
             rated_power_kw=self.plant_cfg.bess_max_power_mw * 1000.0,
             droop_s=0.04,
             h_constant_s=4.5
+        )
+        self.bess_health_engine = BatteryHealthEngine(
+            capacity_mwh=self.plant_cfg.bess_capacity_mwh,
+            nominal_voltage_v=850.0
         )
         
         # State & Active Disturbances
@@ -261,6 +266,11 @@ class TelemetrySimulator:
         )
         
         frequency_response = self.frequency_engine.update(dt_seconds=2.0)
+        bess_health = self.bess_health_engine.update(
+            bess_dispatch_kw=frequency_response.get("total_fcr_kw", 0.0),
+            soc_pct=self.battery_soc_pct,
+            dt_seconds=2.0
+        )
         
         return {
             "timestamp": dt.isoformat(),
@@ -279,6 +289,7 @@ class TelemetrySimulator:
             "spatial_tracking": spatial_tracking,
             "cloud_tracking": cloud_tracking,
             "frequency_response": frequency_response,
+            "bess_health": bess_health,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}

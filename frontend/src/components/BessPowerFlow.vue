@@ -11,6 +11,10 @@
         </div>
       </div>
       <div class="header-right">
+        <button @click="$emit('open-health')" class="btn-scada btn-scada-emerald btn-mpc">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          SOH & Safety
+        </button>
         <button @click="$emit('open-mpc')" class="btn-scada btn-scada-cyan btn-mpc">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           4H MPC Plan
@@ -82,7 +86,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['open-mpc'])
+const emit = defineEmits(['open-mpc', 'open-health'])
 
 const gaugeRef = ref(null)
 let gaugeChart = null
