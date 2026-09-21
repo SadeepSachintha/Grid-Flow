@@ -48,8 +48,14 @@
         </div>
       </div>
 
-      <!-- Connection Status -->
-      <div class="header-status">
+      <!-- Header Status & Work Orders -->
+      <div class="header-status-wrap">
+        <button @click="isWorkOrdersOpen = true" class="btn-scada btn-scada-amber btn-wo-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Work Orders
+          <span class="wo-badge">{{ activeWorkOrdersCount }}</span>
+        </button>
+
         <span class="badge" :class="wsConnected ? 'badge-emerald' : 'badge-amber'">
           <span class="status-dot" :class="{ active: wsConnected }"></span>
           {{ wsConnected ? 'MQTT/Kafka 2s Live' : 'Polling Fallback' }}
@@ -91,12 +97,23 @@
           <TariffArbitrage :telemetry="telemetry" />
         </div>
         <div class="col-third">
-          <AlertFeed :alerts="telemetry.active_alerts || []" @acknowledge="handleAcknowledge" />
+          <AlertFeed 
+            :alerts="telemetry.active_alerts || []" 
+            @acknowledge="handleAcknowledge" 
+            @dispatch-work-order="handleDispatchFromAlert" 
+          />
         </div>
         <div class="col-third">
           <ScenarioControl @trigger-disturbance="fetchLive" @reset-disturbances="fetchLive" />
         </div>
       </section>
+
+      <!-- Work Orders Slide-over Drawer -->
+      <WorkOrdersModal 
+        :is-open="isWorkOrdersOpen" 
+        @close="isWorkOrdersOpen = false" 
+        @updated="fetchWorkOrdersCount" 
+      />
     </main>
   </div>
 </template>
@@ -111,11 +128,14 @@ import TariffArbitrage from './components/TariffArbitrage.vue'
 import AlertFeed from './components/AlertFeed.vue'
 import ScenarioControl from './components/ScenarioControl.vue'
 import PlaybackController from './components/PlaybackController.vue'
+import WorkOrdersModal from './components/WorkOrdersModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
 const wsConnected = ref(false)
 const isPlaybackMode = ref(false)
+const isWorkOrdersOpen = ref(false)
+const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null
 
@@ -130,8 +150,60 @@ const socPct = computed(() => telemetry.value?.bess_soc_pct || 65)
 onMounted(async () => {
   await fetchHistory()
   await fetchLive()
+  await fetchWorkOrdersCount()
   connectWebSocket()
 })
+
+async function fetchWorkOrdersCount() {
+  try {
+    let res
+    try {
+      res = await fetch('http://127.0.0.1:8080/api/v1/work-orders')
+    } catch {
+      res = await fetch('/api/v1/work-orders')
+    }
+    const data = await res.json()
+    const active = data.filter(w => w.status !== 'RESOLVED')
+    activeWorkOrdersCount.value = active.length
+  } catch (err) {
+    console.error('Error fetching work orders count:', err)
+  }
+}
+
+async function handleDispatchFromAlert(alert) {
+  try {
+    const payload = {
+      plant_id: telemetry.value?.plant_id || 'PLANT-SOLARIA-01',
+      inverter_id: alert.inverter_id || 'INV-02',
+      string_id: alert.string_id || null,
+      alert_type: alert.alert_type,
+      message: alert.message,
+      severity: alert.severity || 'CRITICAL'
+    }
+
+    let res
+    try {
+      res = await fetch('http://127.0.0.1:8080/api/v1/work-orders/from-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+    } catch {
+      res = await fetch('/api/v1/work-orders/from-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+    }
+
+    if (res.ok) {
+      await fetchWorkOrdersCount()
+      isWorkOrdersOpen.value = true
+    }
+  } catch (err) {
+    console.error('Error creating work order from alert:', err)
+  }
+}
 
 onUnmounted(() => {
   if (ws) ws.close()
@@ -365,6 +437,29 @@ async function handleAcknowledge(alert) {
 .col-third {
   flex: 1;
   min-width: 0;
+}
+
+.header-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-wo-header {
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wo-badge {
+  background: var(--accent-amber);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
 }
 
 @media (max-width: 1280px) {

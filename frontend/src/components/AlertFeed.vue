@@ -44,14 +44,24 @@
 
           <div class="alert-actions">
             <span class="type-tag mono-val">{{ alert.alert_type }}</span>
-            <button 
-              v-if="alert.status !== 'ACKNOWLEDGED'" 
-              @click="acknowledge(alert)" 
-              class="btn-scada btn-scada-rose btn-ack"
-            >
-              Acknowledge
-            </button>
-            <span v-else class="ack-tag">ACKNOWLEDGED</span>
+            <div class="action-btn-group">
+              <button 
+                v-if="alert.severity === 'CRITICAL' || alert.severity === 'WARNING'"
+                @click="dispatchWorkOrder(alert)"
+                class="btn-scada btn-scada-amber btn-dispatch"
+                title="Dispatch Technician Work Order"
+              >
+                Dispatch Tech
+              </button>
+              <button 
+                v-if="alert.status !== 'ACKNOWLEDGED'" 
+                @click="acknowledge(alert)" 
+                class="btn-scada btn-scada-rose btn-ack"
+              >
+                Acknowledge
+              </button>
+              <span v-else class="ack-tag">ACKNOWLEDGED</span>
+            </div>
           </div>
         </div>
       </div>
@@ -69,7 +79,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['acknowledge'])
+const emit = defineEmits(['acknowledge', 'dispatch-work-order'])
 
 const activeAlerts = computed(() => props.alerts || [])
 
@@ -85,6 +95,10 @@ function formatTime(isoStr) {
 
 function acknowledge(alert) {
   emit('acknowledge', alert)
+}
+
+function dispatchWorkOrder(alert) {
+  emit('dispatch-work-order', alert)
 }
 </script>
 
@@ -211,6 +225,17 @@ function acknowledge(alert) {
   background: rgba(255, 255, 255, 0.04);
   padding: 2px 6px;
   border-radius: 4px;
+}
+
+.action-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-dispatch {
+  padding: 3px 8px;
+  font-size: 0.7rem;
 }
 
 .btn-ack {
