@@ -43,6 +43,10 @@
           <span class="h-val mono-val">{{ windSpeed.toFixed(1) }} <small>m/s</small></span>
         </div>
         <div class="h-metric">
+          <span class="h-label">RAMP RATE</span>
+          <span class="h-val mono-val" :class="rampRate < -2.0 ? 'text-rose' : 'text-emerald'">{{ rampRate.toFixed(1) }} <small>MW/m</small></span>
+        </div>
+        <div class="h-metric">
           <span class="h-label">BESS SOC</span>
           <span class="h-val mono-val" :class="socPct < 20 ? 'text-rose' : 'text-cyan'">{{ Math.round(socPct) }}%</span>
         </div>
@@ -84,6 +88,11 @@
         <div class="col-half">
           <ForecastCurve :history="telemetryHistory" :latest="telemetry" />
         </div>
+      </section>
+
+      <!-- Row: All-Sky Cloud Motion Vector & Ramp-Rate Radar -->
+      <section class="scada-row row-radar">
+        <SkyCamRadar :telemetry="telemetry" @cloud-triggered="fetchLive" />
       </section>
 
       <!-- Row 2: BESS Storage Dispatch & 32 String Divergence Matrix -->
@@ -149,6 +158,7 @@ import PlaybackController from './components/PlaybackController.vue'
 import WorkOrdersModal from './components/WorkOrdersModal.vue'
 import MpcTrajectoryModal from './components/MpcTrajectoryModal.vue'
 import DigitalTwinModal from './components/DigitalTwinModal.vue'
+import SkyCamRadar from './components/SkyCamRadar.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -167,6 +177,7 @@ const p90Kw = computed(() => telemetry.value?.forecast_15m?.p90_conservative_kw 
 const scheduleKw = computed(() => telemetry.value?.committed_schedule_kw || 0)
 const irradiance = computed(() => telemetry.value?.weather?.irradiance_wm2 || 0)
 const windSpeed = computed(() => telemetry.value?.weather?.wind_speed_ms || 0)
+const rampRate = computed(() => telemetry.value?.cloud_tracking?.predicted_ramp_mw_min || 0)
 const socPct = computed(() => telemetry.value?.bess_soc_pct || 65)
 
 onMounted(async () => {

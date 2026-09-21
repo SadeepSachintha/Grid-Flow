@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Dict, List, Any
 from stream_engine.config import settings
 from stream_engine.models.solar_tracker import SolarTrackerEngine
+from stream_engine.models.cloud_motion import CloudMotionEngine
 
 class TelemetrySimulator:
     """
@@ -19,6 +20,10 @@ class TelemetrySimulator:
         self.tracker_engine = SolarTrackerEngine(
             latitude=self.plant_cfg.latitude,
             longitude=self.plant_cfg.longitude
+        )
+        self.cloud_engine = CloudMotionEngine(
+            cloud_base_height_m=1200.0,
+            plant_radius_m=250.0
         )
         
         # State & Active Disturbances
@@ -40,6 +45,7 @@ class TelemetrySimulator:
         self.active_disturbances["cloud_cover"] = {
             "active": True, "remaining_sec": duration_sec, "drop_pct": drop_pct
         }
+        self.cloud_engine.trigger_approaching_cloud(speed_ms=16.0, heading_deg=65.0, distance_m=1200.0)
 
     def trigger_wind_lull(self, duration_sec: int = 30, drop_pct: float = 70.0):
         self.active_disturbances["wind_lull"] = {
@@ -238,6 +244,14 @@ class TelemetrySimulator:
         committed_schedule_kw = self._get_committed_schedule(current_hour)
         current_tariff = self._get_current_tariff(current_hour)
         spatial_tracking = self.tracker_engine.get_spatial_tracking(dt, wind_speed_ms=wind_speed)
+        cloud_tracking = self.cloud_engine.update(
+            dt=dt,
+            sun_elevation_deg=spatial_tracking["sun_elevation_deg"],
+            sun_azimuth_deg=spatial_tracking["sun_azimuth_deg"],
+            wind_speed_ms=wind_speed,
+            wind_yaw_deg=spatial_tracking["wind_yaw_deg"],
+            dt_seconds=2.0
+        )
         
         return {
             "timestamp": dt.isoformat(),
@@ -254,6 +268,7 @@ class TelemetrySimulator:
             "committed_schedule_kw": committed_schedule_kw,
             "tariff_usd_kwh": round(current_tariff, 4),
             "spatial_tracking": spatial_tracking,
+            "cloud_tracking": cloud_tracking,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}
