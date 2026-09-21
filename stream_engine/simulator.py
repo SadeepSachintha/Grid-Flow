@@ -9,6 +9,7 @@ from stream_engine.models.cloud_motion import CloudMotionEngine
 from stream_engine.models.frequency_droop import FrequencyDroopEngine
 from stream_engine.models.battery_health import BatteryHealthEngine
 from stream_engine.models.drone_inspection import DroneInspectionEngine
+from stream_engine.models.vpp_trading import VppTradingEngine
 
 class TelemetrySimulator:
     """
@@ -39,6 +40,7 @@ class TelemetrySimulator:
             nominal_voltage_v=850.0
         )
         self.drone_engine = DroneInspectionEngine()
+        self.vpp_engine = VppTradingEngine()
         
         # State & Active Disturbances
         self.active_disturbances: Dict[str, Any] = {
@@ -278,6 +280,12 @@ class TelemetrySimulator:
             ambient_temp_c=base_ambient_temp,
             dt_seconds=2.0
         )
+        vpp_trading = self.vpp_engine.update(
+            total_renewable_kw=total_solar_kw + total_wind_kw,
+            bess_dispatch_kw=frequency_response.get("total_fcr_kw", 0.0),
+            bess_soc_pct=self.battery_soc_pct,
+            dt_seconds=2.0
+        )
         
         return {
             "timestamp": dt.isoformat(),
@@ -298,6 +306,7 @@ class TelemetrySimulator:
             "frequency_response": frequency_response,
             "bess_health": bess_health,
             "drone_inspection": drone_inspection,
+            "vpp_trading": vpp_trading,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}

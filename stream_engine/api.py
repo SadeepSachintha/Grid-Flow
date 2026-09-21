@@ -258,6 +258,66 @@ async def drone_return_to_home():
 async def get_drone_report():
     return worker.simulator.drone_engine.generate_inspection_report()
 
+class VppActionRequest(BaseModel):
+    action: str  # 'electrolyzer_surge', 'datacenter_curtailment', 'peak_arbitrage'
+    mw: Optional[float] = 3.2
+    price: Optional[float] = 48.0
+
+@app.get("/api/vpp/orderbook")
+async def get_vpp_orderbook():
+    engine = worker.simulator.vpp_engine
+    return {
+        "order_book": engine.active_order_book,
+        "market_clearing_price_usd_mwh": engine.market_clearing_price_usd_mwh,
+        "cleared_volume_mw": engine.cleared_volume_mw,
+        "consumer_surplus_usd": engine.consumer_surplus_usd,
+        "producer_surplus_usd": engine.producer_surplus_usd
+    }
+
+@app.get("/api/vpp/assets")
+async def get_vpp_assets():
+    return list(worker.simulator.vpp_engine.assets.values())
+
+@app.get("/api/vpp/transactions")
+async def get_vpp_transactions():
+    engine = worker.simulator.vpp_engine
+    return {
+        "transactions": engine.recent_transactions,
+        "rec_tokens": engine.minted_rec_tokens,
+        "total_energy_traded_mwh": engine.total_energy_traded_mwh,
+        "total_carbon_avoided_tons": engine.total_carbon_avoided_tons
+    }
+
+@app.post("/api/vpp/action")
+async def trigger_vpp_action(req: VppActionRequest):
+    engine = worker.simulator.vpp_engine
+    act = req.action.lower()
+    if act == "electrolyzer_surge":
+        engine.trigger_electrolyzer_surge(extra_mw=req.mw or 3.2, max_bid=req.price or 48.0)
+        msg = f"Mojave Green H2 Electrolyzer surge buy triggered: +{req.mw} MW @ ${req.price}/MWh max bid."
+    elif act == "datacenter_curtailment":
+        engine.trigger_datacenter_curtailment(shed_mw=req.mw or 1.5)
+        msg = f"Mojave Compute AI Center curtailed -{req.mw} MW of flexible batch training workloads."
+    elif act == "peak_arbitrage":
+        engine.trigger_peak_arbitrage(discharge_mw=req.mw or 4.0, ask_price=req.price or 110.0)
+        msg = f"Solaria West BESS peak arbitrage sell injected: {req.mw} MW @ ${req.price}/MWh."
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown VPP action '{req.action}'")
+
+    return {
+        "status": "APPLIED",
+        "message": msg,
+        "event_overrides": engine.event_overrides
+    }
+
+@app.post("/api/vpp/reset")
+async def reset_vpp_market():
+    worker.simulator.vpp_engine.reset_market()
+    return {
+        "status": "RESET",
+        "message": "VPP microgrid market restored to standard auto-balancing dispatch."
+    }
+
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
     await websocket.accept()

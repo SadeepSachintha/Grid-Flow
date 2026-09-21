@@ -58,6 +58,11 @@
 
       <!-- Header Status & Work Orders -->
       <div class="header-status-wrap">
+        <button @click="isVppTradingOpen = true" class="btn-scada btn-scada-cyan btn-twin-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          VPP P2P Trading
+        </button>
+
         <button @click="isDigitalTwinOpen = true" class="btn-scada btn-scada-cyan btn-twin-header">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
           3D Digital Twin
@@ -170,6 +175,13 @@
         :telemetry="telemetry" 
         @close="isDroneModalOpen = false" 
       />
+
+      <!-- VPP Aggregation & P2P Microgrid Energy Trading Modal -->
+      <VppTradingModal 
+        :is-open="isVppTradingOpen" 
+        :telemetry="telemetry" 
+        @close="isVppTradingOpen = false" 
+      />
     </main>
   </div>
 </template>
@@ -191,6 +203,7 @@ import SkyCamRadar from './components/SkyCamRadar.vue'
 import FrequencyResponse from './components/FrequencyResponse.vue'
 import BessHealthModal from './components/BessHealthModal.vue'
 import DroneMissionModal from './components/DroneMissionModal.vue'
+import VppTradingModal from './components/VppTradingModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -201,6 +214,7 @@ const isMpcOpen = ref(false)
 const isDigitalTwinOpen = ref(false)
 const isBessHealthOpen = ref(false)
 const isDroneModalOpen = ref(false)
+const isVppTradingOpen = ref(false)
 const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null
