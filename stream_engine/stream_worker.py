@@ -81,7 +81,7 @@ class StreamWorker:
             active_inverter_ratio=active_ratio
         )
         
-        # 2. Battery Dispatch Optimization (Penalty avoidance + Tariff Arbitrage)
+        # 2. Battery Dispatch Optimization (Penalty avoidance + Tariff Arbitrage + P90 Risk Assessment)
         dispatch_res = self.dispatch_optimizer.optimize_dispatch(
             renewable_gen_kw=renewable_kw,
             forecast_15m_kw=forecast["predicted_total_kw"],
@@ -89,7 +89,9 @@ class StreamWorker:
             current_soc_pct=self.current_soc_pct,
             tariff_usd_kwh=tariff_usd,
             deadband_pct=settings.PLANT.schedule_deadband_pct,
-            time_step_hours=settings.TELEMETRY_INTERVAL_SEC / 3600.0
+            time_step_hours=settings.TELEMETRY_INTERVAL_SEC / 3600.0,
+            p90_conservative_kw=forecast.get("p90_conservative_kw", 0.0),
+            p10_optimistic_kw=forecast.get("p10_optimistic_kw", 0.0)
         )
         self.current_soc_pct = dispatch_res["updated_soc_pct"]
         

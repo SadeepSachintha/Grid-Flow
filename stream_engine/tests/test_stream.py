@@ -59,13 +59,52 @@ class TestGridFlowStreamEngine(unittest.TestCase):
         self.assertGreater(res["penalty_avoided_usd_h"], 100.0)
         print(f"[TEST] BESS Deficit Dispatch: Discharging {res['battery_dispatch_kw']} kW, Avoided Penalty: ${res['penalty_avoided_usd_h']}/h")
 
+    def test_probabilistic_quantile_forecasting(self):
+        dt = datetime(2026, 6, 21, 13, 0, 0)
+        forecast = self.forecaster.predict_15m_rolling(
+            current_time=dt,
+            irradiance_wm2=980.0,
+            ambient_temp_c=30.0,
+            wind_speed_ms=8.0,
+            active_inverter_ratio=1.0
+        )
+        self.assertIn("p10_optimistic_kw", forecast)
+        self.assertIn("p50_median_kw", forecast)
+        self.assertIn("p90_conservative_kw", forecast)
+        self.assertIn("uncertainty_spread_kw", forecast)
+
+        # Assert quantile monotonicity: P10 >= P50 >= P90
+        p10 = forecast["p10_optimistic_kw"]
+        p50 = forecast["p50_median_kw"]
+        p90 = forecast["p90_conservative_kw"]
+        self.assertGreaterEqual(p10, p50)
+        self.assertGreaterEqual(p50, p90)
+        self.assertGreater(p10, 0.0)
+        print(f"[TEST] Quantiles Verified: P10={p10} kW >= P50={p50} kW >= P90={p90} kW (Spread: {forecast['uncertainty_spread_kw']} kW)")
+
+    def test_p90_risk_informed_dispatch(self):
+        # Schedule exceeds conservative P90 -> triggers shortfall risk flag
+        res = self.dispatch_opt.optimize_dispatch(
+            renewable_gen_kw=14000.0,
+            forecast_15m_kw=15000.0,
+            committed_schedule_kw=18000.0,
+            current_soc_pct=60.0,
+            tariff_usd_kwh=0.32,
+            p90_conservative_kw=14500.0,
+            p10_optimistic_kw=16500.0
+        )
+        self.assertIn(res["risk_level"], ["HIGH_SHORTFALL_RISK", "MODERATE_SHORTFALL_RISK"])
+        self.assertGreater(res["shortfall_risk_kw"], 0.0)
+        print(f"[TEST] P90 Risk Evaluated: Risk Level={res['risk_level']}, Shortfall Risk={res['shortfall_risk_kw']} kW")
+
     def test_full_stream_packet_processing(self):
         packet = self.simulator.generate_packet()
         enriched = self.worker.process_telemetry_packet(packet)
         self.assertIn("forecast_15m", enriched)
         self.assertIn("bess_dispatch", enriched)
         self.assertIn("financial_kpis", enriched)
-        print(f"[TEST] Full Stream Enriched: Net Injected {enriched['bess_dispatch']['final_injected_kw']} kW, BESS SoC {enriched['bess_soc_pct']}%")
+        self.assertIn("p90_conservative_kw", enriched["forecast_15m"])
+        print(f"[TEST] Full Stream Enriched: P90={enriched['forecast_15m']['p90_conservative_kw']} kW, BESS SoC {enriched['bess_soc_pct']}%")
 
 if __name__ == "__main__":
     unittest.main()

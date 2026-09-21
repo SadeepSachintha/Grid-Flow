@@ -30,13 +30,24 @@ class BatteryDispatchOptimizer:
         current_soc_pct: float,
         tariff_usd_kwh: float,
         deadband_pct: float = 5.0,
-        time_step_hours: float = 2.0 / 3600.0  # 2-second time step
+        time_step_hours: float = 2.0 / 3600.0,  # 2-second time step
+        p90_conservative_kw: float = 0.0,
+        p10_optimistic_kw: float = 0.0
     ) -> Dict[str, Any]:
         """
-        Determines optimal battery power setpoint (kW).
+        Determines optimal battery power setpoint (kW) and assesses P90 shortfall risk.
         Positive = Discharging (injecting power into grid).
         Negative = Charging (absorbing power from renewables/grid).
         """
+        # Shortfall risk analysis using P90 (90% exceedance level)
+        risk_level = "BALANCED"
+        shortfall_risk_kw = 0.0
+        if committed_schedule_kw > 0 and p90_conservative_kw > 0:
+            if committed_schedule_kw > p90_conservative_kw:
+                shortfall_risk_kw = max(0.0, committed_schedule_kw - p90_conservative_kw)
+                risk_level = "HIGH_SHORTFALL_RISK" if shortfall_risk_kw > (committed_schedule_kw * 0.10) else "MODERATE_SHORTFALL_RISK"
+            elif committed_schedule_kw < p10_optimistic_kw:
+                risk_level = "SURPLUS_UPSIDE"
         # Calculate available charge/discharge energy headroom
         current_kwh = (current_soc_pct / 100.0) * self.capacity_kwh
         max_kwh = (self.max_soc_pct / 100.0) * self.capacity_kwh
@@ -121,5 +132,7 @@ class BatteryDispatchOptimizer:
             "revenue_rate_usd_h": round(revenue_rate_usd_h, 2),
             "updated_soc_pct": round(updated_soc_pct, 2),
             "available_discharge_kw": round(max_discharge_kw, 2),
-            "available_charge_kw": round(max_charge_kw, 2)
+            "available_charge_kw": round(max_charge_kw, 2),
+            "risk_level": risk_level,
+            "shortfall_risk_kw": round(shortfall_risk_kw, 2)
         }

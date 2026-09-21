@@ -27,6 +27,10 @@
           <span class="h-val mono-val text-cyan">{{ Math.round(forecastKw).toLocaleString() }} <small>kW</small></span>
         </div>
         <div class="h-metric">
+          <span class="h-label">P90 SAFE BID</span>
+          <span class="h-val mono-val text-cyan">{{ Math.round(p90Kw).toLocaleString() }} <small>kW</small></span>
+        </div>
+        <div class="h-metric">
           <span class="h-label">SCHEDULE</span>
           <span class="h-val mono-val text-amber">{{ Math.round(scheduleKw).toLocaleString() }} <small>kW</small></span>
         </div>
@@ -109,6 +113,7 @@ let pollTimer = null
 
 const injectedKw = computed(() => telemetry.value?.bess_dispatch?.final_injected_kw || telemetry.value?.total_renewable_kw || 0)
 const forecastKw = computed(() => telemetry.value?.forecast_15m?.predicted_total_kw || 0)
+const p90Kw = computed(() => telemetry.value?.forecast_15m?.p90_conservative_kw || 0)
 const scheduleKw = computed(() => telemetry.value?.committed_schedule_kw || 0)
 const irradiance = computed(() => telemetry.value?.weather?.irradiance_wm2 || 0)
 const windSpeed = computed(() => telemetry.value?.weather?.wind_speed_ms || 0)

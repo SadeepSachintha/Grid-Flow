@@ -24,10 +24,12 @@ class RenewableYieldForecaster:
         self.wind_rated = 12.0            # m/s
         self.wind_cut_out = 25.0          # m/s
         
-        # ML model instance
-        self.model = None
-        self.model_type = "LightGBM"
-        self._initialize_model()
+        # ML model instances for quantiles (alpha=0.10, 0.50, 0.90)
+        self.model_q10 = None  # Mathematical 10th percentile -> P90 Conservative Exceedance
+        self.model_q50 = None  # Mathematical 50th percentile -> P50 Median Expected
+        self.model_q90 = None  # Mathematical 90th percentile -> P10 Optimistic Exceedance
+        self.model_type = "LightGBM Multi-Quantile (P10/P50/P90)"
+        self._initialize_models()
 
     def _calculate_solar_physics(self, irradiance_wm2: float, ambient_temp_c: float, hour_of_day: float) -> float:
         """Calculates expected solar AC power (kW) using PV cell physics and temperature derating."""
@@ -62,9 +64,8 @@ class RenewableYieldForecaster:
             cubic_ratio = (wind_speed_ms**3 - self.wind_cut_in**3) / (self.wind_rated**3 - self.wind_cut_in**3)
             return self.wind_capacity_kw * max(0.0, min(1.0, cubic_ratio))
 
-    def _initialize_model(self):
-        """Train or initialize a fine-tuned LightGBM/XGBoost regressor on synthetic physics curves."""
-        # Generate training dataset representing diverse operational states
+    def _initialize_models(self):
+        """Train 3 quantile LightGBM/GradientBoosting regressors for P10, P50, and P90."""
         np.random.seed(42)
         n_samples = 2500
         
@@ -73,20 +74,19 @@ class RenewableYieldForecaster:
             max(0.0, np.sin(np.pi * (h - 6) / 12) * np.random.uniform(600, 1050)) if 6 <= h <= 18 else 0.0
             for h in hours
         ])
-        # Add cloud transient drops
-        cloud_factor = np.random.choice([1.0, 0.8, 0.4, 0.2], p=[0.7, 0.15, 0.1, 0.05], size=n_samples)
+        # Atmospheric variability and cloud transient drops
+        cloud_factor = np.random.choice([1.0, 0.85, 0.5, 0.25], p=[0.65, 0.18, 0.12, 0.05], size=n_samples)
         irradiances = irradiances * cloud_factor
         
         ambient_temps = 15.0 + 15.0 * np.sin(np.pi * (hours - 8) / 12) + np.random.normal(0, 2, n_samples)
-        wind_speeds = np.random.weibull(2.0, n_samples) * 7.5  # Realistic Weibull wind distribution
+        wind_speeds = np.random.weibull(2.0, n_samples) * 7.5
         
-        # Compute targets with slight real-world noise
         y_solar = np.array([
-            self._calculate_solar_physics(irr, temp, h) * np.random.normal(1.0, 0.02)
+            self._calculate_solar_physics(irr, temp, h) * np.random.normal(1.0, 0.04)
             for irr, temp, h in zip(irradiances, ambient_temps, hours)
         ])
         y_wind = np.array([
-            self._calculate_wind_physics(w) * np.random.normal(1.0, 0.03)
+            self._calculate_wind_physics(w) * np.random.normal(1.0, 0.05)
             for w in wind_speeds
         ])
         y_total = y_solar + y_wind
@@ -104,32 +104,29 @@ class RenewableYieldForecaster:
         
         try:
             import lightgbm as lgb
-            self.model = lgb.LGBMRegressor(
-                n_estimators=120,
-                learning_rate=0.06,
-                num_leaves=31,
-                max_depth=6,
-                random_state=42,
-                verbose=-1
-            )
-            self.model.fit(X, y_total)
-            self.model_type = "LightGBM"
+            # Fit 3 quantile models
+            self.model_q10 = lgb.LGBMRegressor(
+                objective="quantile", alpha=0.10, n_estimators=90,
+                learning_rate=0.07, num_leaves=25, max_depth=5, random_state=42, verbose=-1
+            ).fit(X, y_total)
+            
+            self.model_q50 = lgb.LGBMRegressor(
+                objective="quantile", alpha=0.50, n_estimators=90,
+                learning_rate=0.07, num_leaves=25, max_depth=5, random_state=42, verbose=-1
+            ).fit(X, y_total)
+            
+            self.model_q90 = lgb.LGBMRegressor(
+                objective="quantile", alpha=0.90, n_estimators=90,
+                learning_rate=0.07, num_leaves=25, max_depth=5, random_state=42, verbose=-1
+            ).fit(X, y_total)
+            
+            self.model_type = "LightGBM Multi-Quantile (P10/P50/P90)"
         except Exception:
-            try:
-                import xgboost as xgb
-                self.model = xgb.XGBRegressor(
-                    n_estimators=100,
-                    learning_rate=0.08,
-                    max_depth=5,
-                    random_state=42
-                )
-                self.model.fit(X, y_total)
-                self.model_type = "XGBoost"
-            except Exception:
-                from sklearn.ensemble import GradientBoostingRegressor
-                self.model = GradientBoostingRegressor(n_estimators=50, random_state=42)
-                self.model.fit(X, y_total)
-                self.model_type = "GradientBoosting (Scikit-Learn)"
+            from sklearn.ensemble import GradientBoostingRegressor
+            self.model_q10 = GradientBoostingRegressor(loss="quantile", alpha=0.10, n_estimators=40, random_state=42).fit(X, y_total)
+            self.model_q50 = GradientBoostingRegressor(loss="quantile", alpha=0.50, n_estimators=40, random_state=42).fit(X, y_total)
+            self.model_q90 = GradientBoostingRegressor(loss="quantile", alpha=0.90, n_estimators=40, random_state=42).fit(X, y_total)
+            self.model_type = "Scikit-Learn GradientBoosting Quantile (P10/P50/P90)"
 
     def predict_15m_rolling(
         self,
@@ -140,8 +137,12 @@ class RenewableYieldForecaster:
         active_inverter_ratio: float = 1.0
     ) -> Dict[str, Any]:
         """
-        Runs inference predicting generation for the next 15 minutes.
-        Returns predicted solar, wind, total kW, and 95% confidence bounds.
+        Runs multi-quantile inference predicting generation for the next 15 minutes.
+        Returns:
+          - p90_conservative_kw: 90% exceedance probability (conservative commitment level)
+          - p50_median_kw: 50% exceedance probability (expected generation)
+          - p10_optimistic_kw: 10% exceedance probability (high-yield scenario)
+          - uncertainty_spread_kw: (p10 - p90) representing forecast risk
         """
         target_time = current_time + timedelta(minutes=15)
         hour = target_time.hour + target_time.minute / 60.0
@@ -160,33 +161,55 @@ class RenewableYieldForecaster:
             "est_wind_physics": wind_phys
         }])
         
-        predicted_total_kw = float(self.model.predict(features)[0])
-        # Apply active inverter derating if some inverters are tripped
-        predicted_total_kw = max(0.0, min(self.total_capacity_kw, predicted_total_kw * active_inverter_ratio))
+        # Predict mathematical percentiles
+        # q_0.10: lower bound (90% exceedance in renewables -> P90)
+        # q_0.50: median (50% exceedance -> P50)
+        # q_0.90: upper bound (10% exceedance in renewables -> P10)
+        raw_q10 = float(self.model_q10.predict(features)[0]) * active_inverter_ratio
+        raw_q50 = float(self.model_q50.predict(features)[0]) * active_inverter_ratio
+        raw_q90 = float(self.model_q90.predict(features)[0]) * active_inverter_ratio
         
-        # Split proportional to physical components
+        # Enforce quantile monotonicity and capacity bounds: 0 <= P90 <= P50 <= P10 <= Total Capacity
+        p90_conservative = max(0.0, min(self.total_capacity_kw, raw_q10))
+        p50_median = max(p90_conservative, min(self.total_capacity_kw, raw_q50))
+        p10_optimistic = max(p50_median, min(self.total_capacity_kw, raw_q90))
+        
+        # Ensure minimum spread for visual confidence band during active generation
+        if p50_median > 200.0 and (p10_optimistic - p90_conservative) < (p50_median * 0.08):
+            buffer = p50_median * 0.05
+            p90_conservative = max(0.0, p50_median - buffer)
+            p10_optimistic = min(self.total_capacity_kw, p50_median + buffer)
+            
+        uncertainty_spread = round(p10_optimistic - p90_conservative, 2)
+        
+        # Split proportional to physical components for median
         phys_sum = solar_phys + wind_phys
         if phys_sum > 0.01:
-            predicted_solar_kw = predicted_total_kw * (solar_phys / phys_sum)
-            predicted_wind_kw = predicted_total_kw * (wind_phys / phys_sum)
+            predicted_solar_kw = p50_median * (solar_phys / phys_sum)
+            predicted_wind_kw = p50_median * (wind_phys / phys_sum)
+            p90_solar_kw = p90_conservative * (solar_phys / phys_sum)
+            p10_solar_kw = p10_optimistic * (solar_phys / phys_sum)
         else:
             predicted_solar_kw = 0.0
             predicted_wind_kw = 0.0
+            p90_solar_kw = 0.0
+            p10_solar_kw = 0.0
             
-        # 95% confidence bounds (+/- 6.5% typical forecast uncertainty)
-        uncertainty = max(150.0, predicted_total_kw * 0.065)
-        lower_bound_kw = max(0.0, predicted_total_kw - uncertainty)
-        upper_bound_kw = min(self.total_capacity_kw, predicted_total_kw + uncertainty)
-        
         return {
             "forecast_generated_at": current_time.isoformat(),
             "target_time": target_time.isoformat(),
             "horizon_minutes": 15,
             "model_type": self.model_type,
-            "predicted_total_kw": round(predicted_total_kw, 2),
+            "predicted_total_kw": round(p50_median, 2), # Primary expected forecast
+            "p50_median_kw": round(p50_median, 2),
+            "p90_conservative_kw": round(p90_conservative, 2),
+            "p10_optimistic_kw": round(p10_optimistic, 2),
+            "uncertainty_spread_kw": uncertainty_spread,
             "predicted_solar_kw": round(predicted_solar_kw, 2),
             "predicted_wind_kw": round(predicted_wind_kw, 2),
-            "lower_bound_kw": round(lower_bound_kw, 2),
-            "upper_bound_kw": round(upper_bound_kw, 2),
-            "confidence_score": 0.95
+            "p90_solar_kw": round(p90_solar_kw, 2),
+            "p10_solar_kw": round(p10_solar_kw, 2),
+            "lower_bound_kw": round(p90_conservative, 2),
+            "upper_bound_kw": round(p10_optimistic, 2),
+            "confidence_score": 0.90
         }
