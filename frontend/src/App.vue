@@ -63,6 +63,12 @@
           3D Digital Twin
         </button>
 
+        <button @click="isDroneModalOpen = true" class="btn-scada btn-scada-amber btn-twin-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 19 21 12 17 5 21 12 2"/></svg>
+          Drone Patrol
+          <span v-if="droneDefectsCount > 0" class="drone-badge">{{ droneDefectsCount }}</span>
+        </button>
+
         <button @click="isWorkOrdersOpen = true" class="btn-scada btn-scada-amber btn-wo-header">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           Work Orders
@@ -157,6 +163,13 @@
         :telemetry="telemetry" 
         @close="isBessHealthOpen = false" 
       />
+
+      <!-- Autonomous Drone Thermography Modal -->
+      <DroneMissionModal 
+        :is-open="isDroneModalOpen" 
+        :telemetry="telemetry" 
+        @close="isDroneModalOpen = false" 
+      />
     </main>
   </div>
 </template>
@@ -177,6 +190,7 @@ import DigitalTwinModal from './components/DigitalTwinModal.vue'
 import SkyCamRadar from './components/SkyCamRadar.vue'
 import FrequencyResponse from './components/FrequencyResponse.vue'
 import BessHealthModal from './components/BessHealthModal.vue'
+import DroneMissionModal from './components/DroneMissionModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -186,9 +200,12 @@ const isWorkOrdersOpen = ref(false)
 const isMpcOpen = ref(false)
 const isDigitalTwinOpen = ref(false)
 const isBessHealthOpen = ref(false)
+const isDroneModalOpen = ref(false)
 const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null
+
+const droneDefectsCount = computed(() => telemetry.value?.drone_inspection?.total_defects_count || 0)
 
 const injectedKw = computed(() => telemetry.value?.bess_dispatch?.final_injected_kw || telemetry.value?.total_renewable_kw || 0)
 const forecastKw = computed(() => telemetry.value?.forecast_15m?.predicted_total_kw || 0)
@@ -534,6 +551,15 @@ async function handleAcknowledge(alert) {
 .wo-badge {
   background: var(--accent-amber);
   color: #000;
+  font-weight: 700;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.drone-badge {
+  background: #ef4444;
+  color: #fff;
   font-weight: 700;
   font-size: 0.65rem;
   padding: 1px 6px;

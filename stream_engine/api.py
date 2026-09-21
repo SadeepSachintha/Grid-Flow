@@ -238,6 +238,26 @@ async def reset_bess_health_drill():
         "message": "BESS cell health restored to nominal. DC contactors closed."
     }
 
+@app.post("/api/drone/launch")
+async def launch_drone_patrol():
+    worker.simulator.drone_engine.start_mission()
+    return {
+        "status": "LAUNCHED",
+        "message": "Autonomous Drone Patrol launched. Waypoint grid inspection in progress (35m AGL)."
+    }
+
+@app.post("/api/drone/rth")
+async def drone_return_to_home():
+    worker.simulator.drone_engine.abort_mission()
+    return {
+        "status": "RTH_COMMANDED",
+        "message": "Return-to-Home (RTH) commanded. Drone returning to Substation Dock."
+    }
+
+@app.get("/api/drone/report")
+async def get_drone_report():
+    return worker.simulator.drone_engine.generate_inspection_report()
+
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
     await websocket.accept()

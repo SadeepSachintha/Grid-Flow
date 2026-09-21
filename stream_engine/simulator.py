@@ -8,6 +8,7 @@ from stream_engine.models.solar_tracker import SolarTrackerEngine
 from stream_engine.models.cloud_motion import CloudMotionEngine
 from stream_engine.models.frequency_droop import FrequencyDroopEngine
 from stream_engine.models.battery_health import BatteryHealthEngine
+from stream_engine.models.drone_inspection import DroneInspectionEngine
 
 class TelemetrySimulator:
     """
@@ -37,6 +38,7 @@ class TelemetrySimulator:
             capacity_mwh=self.plant_cfg.bess_capacity_mwh,
             nominal_voltage_v=850.0
         )
+        self.drone_engine = DroneInspectionEngine()
         
         # State & Active Disturbances
         self.active_disturbances: Dict[str, Any] = {
@@ -271,6 +273,11 @@ class TelemetrySimulator:
             soc_pct=self.battery_soc_pct,
             dt_seconds=2.0
         )
+        drone_inspection = self.drone_engine.update(
+            active_disturbances=self.active_disturbances,
+            ambient_temp_c=base_ambient_temp,
+            dt_seconds=2.0
+        )
         
         return {
             "timestamp": dt.isoformat(),
@@ -290,6 +297,7 @@ class TelemetrySimulator:
             "cloud_tracking": cloud_tracking,
             "frequency_response": frequency_response,
             "bess_health": bess_health,
+            "drone_inspection": drone_inspection,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}
