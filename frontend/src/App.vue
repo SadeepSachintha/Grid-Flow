@@ -47,6 +47,10 @@
           <span class="h-val mono-val" :class="rampRate < -2.0 ? 'text-rose' : 'text-emerald'">{{ rampRate.toFixed(1) }} <small>MW/m</small></span>
         </div>
         <div class="h-metric">
+          <span class="h-label">GRID FREQ</span>
+          <span class="h-val mono-val" :class="gridFreq < 59.97 || gridFreq > 60.03 ? 'text-rose' : 'text-emerald'">{{ gridFreq.toFixed(3) }} <small>Hz</small></span>
+        </div>
+        <div class="h-metric">
           <span class="h-label">BESS SOC</span>
           <span class="h-val mono-val" :class="socPct < 20 ? 'text-rose' : 'text-cyan'">{{ Math.round(socPct) }}%</span>
         </div>
@@ -105,6 +109,11 @@
         </div>
       </section>
 
+      <!-- Row: Fast Frequency Response (FFR) & Synthetic Inertia -->
+      <section class="scada-row row-freq">
+        <FrequencyResponse :telemetry="telemetry" />
+      </section>
+
       <!-- Row 3: Economic Arbitrage + Alerts + Disturbance Simulator -->
       <section class="scada-row row-bot">
         <div class="col-third">
@@ -159,6 +168,7 @@ import WorkOrdersModal from './components/WorkOrdersModal.vue'
 import MpcTrajectoryModal from './components/MpcTrajectoryModal.vue'
 import DigitalTwinModal from './components/DigitalTwinModal.vue'
 import SkyCamRadar from './components/SkyCamRadar.vue'
+import FrequencyResponse from './components/FrequencyResponse.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -178,6 +188,7 @@ const scheduleKw = computed(() => telemetry.value?.committed_schedule_kw || 0)
 const irradiance = computed(() => telemetry.value?.weather?.irradiance_wm2 || 0)
 const windSpeed = computed(() => telemetry.value?.weather?.wind_speed_ms || 0)
 const rampRate = computed(() => telemetry.value?.cloud_tracking?.predicted_ramp_mw_min || 0)
+const gridFreq = computed(() => telemetry.value?.frequency_response?.grid_frequency_hz ?? 60.000)
 const socPct = computed(() => telemetry.value?.bess_soc_pct || 65)
 
 onMounted(async () => {

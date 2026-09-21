@@ -6,6 +6,7 @@ from typing import Dict, List, Any
 from stream_engine.config import settings
 from stream_engine.models.solar_tracker import SolarTrackerEngine
 from stream_engine.models.cloud_motion import CloudMotionEngine
+from stream_engine.models.frequency_droop import FrequencyDroopEngine
 
 class TelemetrySimulator:
     """
@@ -24,6 +25,12 @@ class TelemetrySimulator:
         self.cloud_engine = CloudMotionEngine(
             cloud_base_height_m=1200.0,
             plant_radius_m=250.0
+        )
+        self.frequency_engine = FrequencyDroopEngine(
+            f0=60.00,
+            rated_power_kw=self.plant_cfg.bess_max_power_mw * 1000.0,
+            droop_s=0.04,
+            h_constant_s=4.5
         )
         
         # State & Active Disturbances
@@ -253,6 +260,8 @@ class TelemetrySimulator:
             dt_seconds=2.0
         )
         
+        frequency_response = self.frequency_engine.update(dt_seconds=2.0)
+        
         return {
             "timestamp": dt.isoformat(),
             "plant_id": self.plant_cfg.plant_id,
@@ -269,6 +278,7 @@ class TelemetrySimulator:
             "tariff_usd_kwh": round(current_tariff, 4),
             "spatial_tracking": spatial_tracking,
             "cloud_tracking": cloud_tracking,
+            "frequency_response": frequency_response,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}

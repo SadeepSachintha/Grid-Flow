@@ -198,6 +198,30 @@ async def get_mpc_dispatch_plan():
     )
     return plan
 
+@app.post("/api/frequency/trip-generator")
+async def trip_generator():
+    worker.simulator.frequency_engine.trigger_generator_trip(loss_mw=1200.0)
+    return {
+        "status": "APPLIED",
+        "message": "Simulated 1,200 MW Generator Trip: Grid frequency plunged to 59.68 Hz. Fast Frequency Response (FFR) activated."
+    }
+
+@app.post("/api/frequency/load-shed")
+async def load_shed():
+    worker.simulator.frequency_engine.trigger_load_shed(load_mw=800.0)
+    return {
+        "status": "APPLIED",
+        "message": "Simulated 800 MW Load Rejection: Grid frequency surged to 60.32 Hz. Droop curtailment/charging activated."
+    }
+
+@app.post("/api/frequency/reset")
+async def reset_frequency_event():
+    worker.simulator.frequency_engine.reset_frequency()
+    return {
+        "status": "RESET",
+        "message": "Grid frequency restored to nominal 60.00 Hz deadband."
+    }
+
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
     await websocket.accept()
