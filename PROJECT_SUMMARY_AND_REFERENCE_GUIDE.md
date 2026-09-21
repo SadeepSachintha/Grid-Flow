@@ -43,22 +43,22 @@ GridFlow aggregates Solaria West with three nearby industrial prosumers into a 4
 
 ```mermaid
 flowchart TD
-    subgraph Layer1["1. High-Frequency IoT Ingestion (2-Second Ticks)"]
-        PV["32 PV Strings (850V, 18.5A)"] --> Inverters["4 Central Inverters (5 MW)"]
-        WTG["2 Wind Turbines (2.5 MW)"] --> Inverters
-        Sensors["Pyranometers, Anemometers, Off-Gas (H2/CO)"] --> Inverters
-        Inverters --> Broker["Mosquitto MQTT (1883) / Kafka KRaft (9092)"]
+    subgraph Layer1["1. High-Frequency IoT Ingestion - 2s Ticks"]
+        PV["32 PV Strings - 850V, 18.5A"] --> Inverters["4 Central Inverters - 5 MW"]
+        WTG["2 Wind Turbines - 2.5 MW"] --> Inverters
+        Sensors["Pyranometers, Anemometers, Off-Gas Sensors"] --> Inverters
+        Inverters --> Broker["Mosquitto MQTT 1883 / Kafka KRaft 9092"]
     end
 
-    subgraph Layer2["2. Python Stream Engine & Specialized Models (FastAPI)"]
+    subgraph Layer2["2. Python Stream Engine & Specialized Models - FastAPI"]
         Broker --> Worker["Asynchronous Stream Worker"]
-        Worker --> QForecaster["Multi-Quantile LightGBM (P10 / P50 / P90)"]
+        Worker --> QForecaster["Multi-Quantile LightGBM - P10, P50, P90"]
         Worker --> MPCOptimizer["4-Hour MPC HiGHS Linear Programming"]
-        Worker --> TrackerEng["Astronomical Backtracking Engine (GCR = 0.40)"]
-        Worker --> SkyRadar["All-Sky Cloud Motion Optical Flow (Ramp-Rate)"]
-        Worker --> FreqDroop["Fast Frequency Response (FFR) & Inertia (s=4%, H=4.5s)"]
+        Worker --> TrackerEng["Astronomical Backtracking Engine - GCR 0.40"]
+        Worker --> SkyRadar["All-Sky Cloud Motion Optical Flow - Ramp-Rate"]
+        Worker --> FreqDroop["Fast Frequency Response FFR & Inertia"]
         Worker --> BessHealth["2RC Thevenin ECM & NFPA 855 Thermal Runaway"]
-        Worker --> DronePatrol["Autonomous FLIR Radiometric Drone Patrol (IEC 62446-3)"]
+        Worker --> DronePatrol["Autonomous FLIR Radiometric Drone Patrol - IEC 62446-3"]
         Worker --> VPPTrading["Continuous Double-Auction & P2P Trading Engine"]
     end
 
@@ -70,22 +70,22 @@ flowchart TD
 
     subgraph Layer4["4. Laravel 12 Backend & CMMS Work Orders"]
         Worker --> Redis["Redis Queue / Event Bus"]
-        Redis --> Laravel["Laravel 12 API Engine (PHP 8.2)"]
+        Redis --> Laravel["Laravel 12 API Engine - PHP 8.2"]
         Laravel --> Topology["Plant & Inverter String Registry"]
         Laravel --> WorkOrders["CMMS Work Orders & Multimeter Checklists"]
     end
 
     subgraph Layer5["5. Industrial SCADA Web Operator Console"]
-        Worker -.->|WebSocket /ws/stream (2s)| SCADA_UI["Vue 3 + Vite SCADA"]
+        Worker -.->|"WebSocket 2s Stream"| SCADA_UI["Vue 3 + Vite SCADA"]
         SCADA_UI --> Map["Leaflet Spatial Map"]
         SCADA_UI --> FanChart["ECharts Probabilistic Fan Chart"]
         SCADA_UI --> Twin3D["Three.js 3D WebGL Digital Twin"]
-        SCADA_UI --> SkyCam["Fisheye Sky Radar (CMV)"]
+        SCADA_UI --> SkyCam["Fisheye Sky Radar - CMV"]
         SCADA_UI --> Osc["Dual-Trace High-Speed Frequency Oscilloscope"]
         SCADA_UI --> BessDiag["16-Rack Cell Matrix & EIS Nyquist Plot"]
-        SCADA_UI --> FLIR["FLIR Radiometric Viewfinder (Ironbow)"]
+        SCADA_UI --> FLIR["FLIR Radiometric Viewfinder - Ironbow"]
         SCADA_UI --> VPPDash["Merit-Order Order Book & REC Token Ledger"]
-        Laravel -.->|REST API| SCADA_UI
+        Laravel -.->|"REST API"| SCADA_UI
     end
 ```
 
