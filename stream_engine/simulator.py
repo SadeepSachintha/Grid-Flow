@@ -4,6 +4,7 @@ import random
 from datetime import datetime
 from typing import Dict, List, Any
 from stream_engine.config import settings
+from stream_engine.models.solar_tracker import SolarTrackerEngine
 
 class TelemetrySimulator:
     """
@@ -15,6 +16,10 @@ class TelemetrySimulator:
     def __init__(self):
         self.plant_cfg = settings.PLANT
         self.sim_time_offset_sec = 0.0
+        self.tracker_engine = SolarTrackerEngine(
+            latitude=self.plant_cfg.latitude,
+            longitude=self.plant_cfg.longitude
+        )
         
         # State & Active Disturbances
         self.active_disturbances: Dict[str, Any] = {
@@ -232,6 +237,7 @@ class TelemetrySimulator:
 
         committed_schedule_kw = self._get_committed_schedule(current_hour)
         current_tariff = self._get_current_tariff(current_hour)
+        spatial_tracking = self.tracker_engine.get_spatial_tracking(dt, wind_speed_ms=wind_speed)
         
         return {
             "timestamp": dt.isoformat(),
@@ -247,6 +253,7 @@ class TelemetrySimulator:
             "total_renewable_kw": round(total_solar_kw + total_wind_kw, 2),
             "committed_schedule_kw": committed_schedule_kw,
             "tariff_usd_kwh": round(current_tariff, 4),
+            "spatial_tracking": spatial_tracking,
             "inverters": inverters_data,
             "turbines": turbines_data,
             "disturbances": {k: v for k, v in self.active_disturbances.items() if v}

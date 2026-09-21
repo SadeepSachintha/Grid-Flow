@@ -50,6 +50,11 @@
 
       <!-- Header Status & Work Orders -->
       <div class="header-status-wrap">
+        <button @click="isDigitalTwinOpen = true" class="btn-scada btn-scada-cyan btn-twin-header">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          3D Digital Twin
+        </button>
+
         <button @click="isWorkOrdersOpen = true" class="btn-scada btn-scada-amber btn-wo-header">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
           Work Orders
@@ -120,6 +125,13 @@
         :is-open="isMpcOpen" 
         @close="isMpcOpen = false" 
       />
+
+      <!-- 3D Digital Twin Modal -->
+      <DigitalTwinModal 
+        v-if="isDigitalTwinOpen" 
+        :telemetry="telemetry" 
+        @close="isDigitalTwinOpen = false" 
+      />
     </main>
   </div>
 </template>
@@ -136,6 +148,7 @@ import ScenarioControl from './components/ScenarioControl.vue'
 import PlaybackController from './components/PlaybackController.vue'
 import WorkOrdersModal from './components/WorkOrdersModal.vue'
 import MpcTrajectoryModal from './components/MpcTrajectoryModal.vue'
+import DigitalTwinModal from './components/DigitalTwinModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
@@ -143,6 +156,7 @@ const wsConnected = ref(false)
 const isPlaybackMode = ref(false)
 const isWorkOrdersOpen = ref(false)
 const isMpcOpen = ref(false)
+const isDigitalTwinOpen = ref(false)
 const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null
@@ -459,6 +473,31 @@ async function handleAcknowledge(alert) {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.btn-twin-header {
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-scada-cyan {
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: #06b6d4;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-scada-cyan:hover {
+  background: rgba(6, 182, 212, 0.22);
+  border-color: rgba(6, 182, 212, 0.6);
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+  color: #fff;
 }
 
 .wo-badge {
