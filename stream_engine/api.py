@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 from contextlib import asynccontextmanager
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 from stream_engine.config import settings
 from stream_engine.stream_worker import worker
 from stream_engine.scenario_archive import scenario_archive
+from stream_engine.models.mpc_optimizer import mpc_controller
 
 # Pydantic schemas for disturbance triggers
 class DisturbanceRequest(BaseModel):
@@ -182,6 +184,19 @@ async def get_scenario_frames(scenario_id: str):
         "total_frames": len(frames),
         "frames": frames
     }
+
+@app.get("/api/dispatch/mpc-plan")
+async def get_mpc_dispatch_plan():
+    now = datetime.now()
+    soc = worker.current_soc_pct
+    last_p = worker.last_packet
+    forecast_kw = last_p["forecast_15m"]["predicted_total_kw"] if last_p and "forecast_15m" in last_p else 18000.0
+    plan = mpc_controller.optimize_4h_horizon(
+        start_time=now,
+        current_soc_pct=soc,
+        current_forecast_p50_kw=forecast_kw
+    )
+    return plan
 
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):

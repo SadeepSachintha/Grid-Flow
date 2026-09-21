@@ -11,6 +11,10 @@
         </div>
       </div>
       <div class="header-right">
+        <button @click="$emit('open-mpc')" class="btn-scada btn-scada-cyan btn-mpc">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          4H MPC Plan
+        </button>
         <span class="badge" :class="dispatchModeClass">
           {{ dispatchModeText }}
         </span>
@@ -77,6 +81,8 @@ const props = defineProps({
     default: () => ({})
   }
 })
+
+const emit = defineEmits(['open-mpc'])
 
 const gaugeRef = ref(null)
 let gaugeChart = null
@@ -193,6 +199,18 @@ function handleResize() {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-mpc {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 
 .icon-wrap {

@@ -84,7 +84,7 @@
       <!-- Row 2: BESS Storage Dispatch & 32 String Divergence Matrix -->
       <section class="scada-row row-mid">
         <div class="col-mid-left">
-          <BessPowerFlow :telemetry="telemetry" />
+          <BessPowerFlow :telemetry="telemetry" @open-mpc="isMpcOpen = true" />
         </div>
         <div class="col-mid-right">
           <StringMonitor :telemetry="telemetry" />
@@ -114,6 +114,12 @@
         @close="isWorkOrdersOpen = false" 
         @updated="fetchWorkOrdersCount" 
       />
+
+      <!-- 4-Hour MPC Horizon Modal -->
+      <MpcTrajectoryModal 
+        :is-open="isMpcOpen" 
+        @close="isMpcOpen = false" 
+      />
     </main>
   </div>
 </template>
@@ -129,12 +135,14 @@ import AlertFeed from './components/AlertFeed.vue'
 import ScenarioControl from './components/ScenarioControl.vue'
 import PlaybackController from './components/PlaybackController.vue'
 import WorkOrdersModal from './components/WorkOrdersModal.vue'
+import MpcTrajectoryModal from './components/MpcTrajectoryModal.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
 const wsConnected = ref(false)
 const isPlaybackMode = ref(false)
 const isWorkOrdersOpen = ref(false)
+const isMpcOpen = ref(false)
 const activeWorkOrdersCount = ref(1)
 let ws = null
 let pollTimer = null
