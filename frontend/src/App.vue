@@ -59,6 +59,12 @@
 
     <!-- Main SCADA Dashboard Content -->
     <main class="scada-main">
+      <!-- Time-Machine Incident Playback Command Bar -->
+      <PlaybackController 
+        @mode-change="handleModeChange" 
+        @frame-update="handlePlaybackFrame" 
+      />
+
       <!-- Row 1: Geospatial Topology & 15-Minute ML Power Curve -->
       <section class="scada-row row-top">
         <div class="col-half">
@@ -104,10 +110,12 @@ import StringMonitor from './components/StringMonitor.vue'
 import TariffArbitrage from './components/TariffArbitrage.vue'
 import AlertFeed from './components/AlertFeed.vue'
 import ScenarioControl from './components/ScenarioControl.vue'
+import PlaybackController from './components/PlaybackController.vue'
 
 const telemetry = ref({})
 const telemetryHistory = ref([])
 const wsConnected = ref(false)
+const isPlaybackMode = ref(false)
 let ws = null
 let pollTimer = null
 
@@ -131,6 +139,7 @@ onUnmounted(() => {
 })
 
 async function fetchLive() {
+  if (isPlaybackMode.value) return
   try {
     const res = await fetch('/api/telemetry/live')
     const data = await res.json()
@@ -140,6 +149,22 @@ async function fetchLive() {
     }
   } catch (err) {
     console.error('Error fetching live telemetry:', err)
+  }
+}
+
+function handleModeChange(mode) {
+  isPlaybackMode.value = (mode === 'playback')
+  if (!isPlaybackMode.value) {
+    fetchLive()
+  }
+}
+
+function handlePlaybackFrame(frame) {
+  if (!isPlaybackMode.value) return
+  telemetry.value = frame
+  telemetryHistory.value.push(frame)
+  if (telemetryHistory.value.length > 50) {
+    telemetryHistory.value.shift()
   }
 }
 
@@ -167,6 +192,7 @@ function connectWebSocket() {
       }
     }
     ws.onmessage = (event) => {
+      if (isPlaybackMode.value) return
       try {
         const data = JSON.parse(event.data)
         telemetry.value = data

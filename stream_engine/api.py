@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from stream_engine.config import settings
 from stream_engine.stream_worker import worker
+from stream_engine.scenario_archive import scenario_archive
 
 # Pydantic schemas for disturbance triggers
 class DisturbanceRequest(BaseModel):
@@ -168,6 +169,19 @@ async def trigger_disturbance(req: DisturbanceRequest):
 async def reset_disturbances():
     worker.simulator.reset_disturbances()
     return {"status": "RESET", "message": "All operational disturbances and string faults cleared."}
+
+@app.get("/api/scenarios/catalog")
+async def get_scenario_catalog():
+    return scenario_archive.get_catalog()
+
+@app.get("/api/scenarios/{scenario_id}/frames")
+async def get_scenario_frames(scenario_id: str):
+    frames = scenario_archive.generate_scenario_frames(scenario_id)
+    return {
+        "scenario_id": scenario_id,
+        "total_frames": len(frames),
+        "frames": frames
+    }
 
 @app.websocket("/ws/stream")
 async def websocket_stream_endpoint(websocket: WebSocket):
